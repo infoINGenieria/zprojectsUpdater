@@ -4,16 +4,15 @@
 
 package zprojectsupdater;
 
-import java.util.ArrayList;
 import org.jdesktop.application.Application;
 import org.jdesktop.application.SingleFrameApplication;
+import org.json.JSONException;
 
 /**
  * The main class of the application.
  */
 public class ZProjectsUpdaterApp extends SingleFrameApplication {
-    public static String version;
-    public static ArrayList<String> filelist = new ArrayList<String>();
+    public static String currentPath=".";
     /**
      * At startup create and show the main frame of the application.
      */
@@ -40,20 +39,9 @@ public class ZProjectsUpdaterApp extends SingleFrameApplication {
     /**
      * Main method launching the application.
      */
-    public static void main(String[] args) {
-        if (args.length == 0) {
-            version = "Desconocida.";
-            filelist.add("http://matiasvarela.com.ar/static/shared/zille/ZilleProjects.jar");
-        }
-        if(args.length >= 1) {
-            version = args[0];
-            filelist.add("http://matiasvarela.com.ar/static/shared/zille/ZilleProjects.jar");
-        }
-        if (args.length > 1) {
-            filelist.clear();
-            for(int i = 1; i < args.length;i++)
-                filelist.add(args[i]);
-        }
+    public static void main(String[] args) throws JSONException   {
+        if (args.length == 1)
+            currentPath = args[0];
         launch(ZProjectsUpdaterApp.class, args);
     }
 }

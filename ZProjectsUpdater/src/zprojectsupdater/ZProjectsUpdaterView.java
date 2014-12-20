@@ -1,38 +1,48 @@
 /*
  * ZProjectsUpdaterView.java
  */
-
 package zprojectsupdater;
 
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.jdesktop.application.Action;
 import org.jdesktop.application.SingleFrameApplication;
 import org.jdesktop.application.FrameView;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import javax.swing.JOptionPane;
+import org.jdesktop.application.Task;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import zprojectsupdater.download.DownloadTask;
+import zprojectsupdater.models.Actualizacion;
+import zprojectsupdater.models.Archivo;
 
 /**
  * The application's main frame.
  */
 public class ZProjectsUpdaterView extends FrameView implements PropertyChangeListener {
 
+    public static String urlBase= "http://matiasvarela.com.ar/";
     public ZProjectsUpdaterView(SingleFrameApplication app) {
         super(app);
         initComponents();
-        startDownload();
+        obtenerInfo().execute();
     }
-    
+
     public void setFileInfo(String name, int size) {
         txtNombre.setText(name);
         lblTamanio.setText(String.valueOf(size) + " bytes.");
     }
-    
+
     public void finishUpdate(String msg) {
         lblStatus.setText(msg);
         btnCancelar.setEnabled(false);
         btnCerrar.setEnabled(true);
     }
-    
+
     /**
      * Update the progress bar's state whenever the progress of download changes.
      */
@@ -44,14 +54,15 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
             jProgressBar.setStringPainted(true);
         }
     }
-        
+    Actualizacion act;
+
     final void startDownload() {
-        lblversion.setText("Versión: " + ZProjectsUpdaterApp.version);
+
         try {
             jProgressBar.setValue(0);
-            task = new DownloadTask(this, ZProjectsUpdaterApp.filelist, ".");
+            task = new DownloadTask(this, act.getArchivos());
             task.addPropertyChangeListener(this);
-            task.execute();      
+            task.execute();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(
                     this.getFrame(),
@@ -59,11 +70,70 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
                     JOptionPane.ERROR_MESSAGE);
         }
     }
-    
+
     public void setStatus(String string) {
         lblStatus.setText(string);
     }
 
+    @Action
+    public final Task obtenerInfo() {
+        return new ObtenerInfoTask(getApplication());
+    }
+
+    private class ObtenerInfoTask extends org.jdesktop.application.Task<Object, Void> {
+        String msg = "";
+        ObtenerInfoTask(org.jdesktop.application.Application app) {
+            super(app);
+        }
+
+        @Override
+        protected Object doInBackground() {
+            JSONObject json;
+            try {
+                json = JsonReader.readJsonFromUrl("http://matiasvarela.com.ar/api/last");
+                act = new Actualizacion(json);
+                msg = ("Versión: " + act.getVersion() + " (" + act.getObservaciones() + ")");
+                JSONArray array = JsonReader.readArrayJsonFromUrl("http://matiasvarela.com.ar/api/files/"
+                        + act.getId());
+                for (int i = 0; i < array.length(); i++) {
+                    act.getArchivos().add(new Archivo(array.getJSONObject(i)));
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(ZProjectsUpdaterView.class.getName()).log(Level.SEVERE, null, ex);
+                msg = ("Error al descargar la información...");
+                return false;
+            } catch (JSONException ex) {
+                Logger.getLogger(ZProjectsUpdaterView.class.getName()).log(Level.SEVERE, null, ex);
+                msg = ("Error al descargar la información...");
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        protected void succeeded(Object result) {
+            lblversion.setText(msg);
+            if((Boolean) result) {
+                lblText.setText("Actualizando a la versión:");
+                startDownload();
+            } else {
+                finishUpdate(msg);
+            }     
+        }
+    }
+
+    /*try {
+    
+    
+    } catch(JSONException e){
+    JOptionPane.showMessageDialog(null, "Error al descargar la información.", 
+    "Error", JOptionPane.OK_OPTION);
+    e.printStackTrace();
+    } catch(IOException e) {
+    JOptionPane.showMessageDialog(null, "Error al descargar la información.", 
+    "Error", JOptionPane.OK_OPTION);
+    e.printStackTrace();
+    }*/
     /** This method is called from within the constructor to
      * initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is
@@ -85,7 +155,7 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
         btnCancelar = new javax.swing.JButton();
         btnCerrar = new javax.swing.JButton();
         lblStatus = new javax.swing.JLabel();
-        jLabel4 = new javax.swing.JLabel();
+        lblText = new javax.swing.JLabel();
 
         mainPanel.setName("mainPanel"); // NOI18N
 
@@ -113,6 +183,8 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
         lblversion.setText(resourceMap.getString("lblversion.text")); // NOI18N
         lblversion.setName("lblversion"); // NOI18N
 
+        javax.swing.ActionMap actionMap = org.jdesktop.application.Application.getInstance(zprojectsupdater.ZProjectsUpdaterApp.class).getContext().getActionMap(ZProjectsUpdaterView.class, this);
+        btnCancelar.setAction(actionMap.get("obtenerInfo")); // NOI18N
         btnCancelar.setText(resourceMap.getString("btnCancelar.text")); // NOI18N
         btnCancelar.setName("btnCancelar"); // NOI18N
         btnCancelar.addActionListener(new java.awt.event.ActionListener() {
@@ -121,10 +193,8 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
             }
         });
 
-        javax.swing.ActionMap actionMap = org.jdesktop.application.Application.getInstance(zprojectsupdater.ZProjectsUpdaterApp.class).getContext().getActionMap(ZProjectsUpdaterView.class, this);
         btnCerrar.setAction(actionMap.get("quit")); // NOI18N
         btnCerrar.setText(resourceMap.getString("btnCerrar.text")); // NOI18N
-        btnCerrar.setEnabled(false);
         btnCerrar.setName("btnCerrar"); // NOI18N
 
         lblStatus.setFont(lblStatus.getFont().deriveFont(lblStatus.getFont().getSize()+1f));
@@ -132,8 +202,8 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
         lblStatus.setText(resourceMap.getString("lblStatus.text")); // NOI18N
         lblStatus.setName("lblStatus"); // NOI18N
 
-        jLabel4.setText(resourceMap.getString("jLabel4.text")); // NOI18N
-        jLabel4.setName("jLabel4"); // NOI18N
+        lblText.setText(resourceMap.getString("lblText.text")); // NOI18N
+        lblText.setName("lblText"); // NOI18N
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -141,35 +211,30 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jProgressBar, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 426, Short.MAX_VALUE)
-                    .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 426, Short.MAX_VALUE)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel1Layout.createSequentialGroup()
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, 426, Short.MAX_VALUE)
+                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, 426, Short.MAX_VALUE)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGap(12, 12, 12)
-                        .addComponent(jLabel4)
+                        .addComponent(lblText)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(lblversion))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel1Layout.createSequentialGroup()
+                    .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGap(12, 12, 12)
                         .addComponent(jLabel2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(lblTamanio))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel1Layout.createSequentialGroup()
+                    .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGap(12, 12, 12)
                         .addComponent(jLabel3)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtNombre)))
+                        .addComponent(txtNombre))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                        .addComponent(btnCancelar)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(btnCerrar))
+                    .addComponent(lblStatus))
                 .addContainerGap())
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                .addContainerGap(251, Short.MAX_VALUE)
-                .addComponent(btnCancelar)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(btnCerrar)
-                .addContainerGap())
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(lblStatus)
-                .addContainerGap(438, Short.MAX_VALUE))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -178,7 +243,7 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel4)
+                    .addComponent(lblText)
                     .addComponent(lblversion))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -214,30 +279,28 @@ public class ZProjectsUpdaterView extends FrameView implements PropertyChangeLis
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnCancelarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCancelarActionPerformed
-        if (task != null){
+        if (task != null) {
             task.cancel(true);
         }
-        while(!task.isDone()) {}
+        while (!task.isDone()) {
+        }
         btnCerrar.setEnabled(true);
         btnCancelar.setEnabled(false);
     }//GEN-LAST:event_btnCancelarActionPerformed
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnCancelar;
     private javax.swing.JButton btnCerrar;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabel4;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JProgressBar jProgressBar;
     private javax.swing.JLabel lblStatus;
     private javax.swing.JLabel lblTamanio;
+    private javax.swing.JLabel lblText;
     private javax.swing.JLabel lblversion;
     private javax.swing.JPanel mainPanel;
     private javax.swing.JLabel txtNombre;
     // End of variables declaration//GEN-END:variables
-
-   DownloadTask task;
-
+    DownloadTask task;
 }

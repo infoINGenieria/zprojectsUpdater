@@ -11,6 +11,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
+import zprojectsupdater.ZProjectsUpdaterApp;
+import zprojectsupdater.ZProjectsUpdaterView;
+import zprojectsupdater.models.Archivo;
 
 /**
  * 
@@ -19,14 +22,12 @@ import javax.swing.SwingWorker;
 public class DownloadTask extends SwingWorker<Void, Void> {
 
     private static final int BUFFER_SIZE = 4096;	
-	private ArrayList<String> downloadURLs;
-	private String saveDirectory;
+	private ArrayList<Archivo> downloadURLs;
 	private zprojectsupdater.ZProjectsUpdaterView gui;
 	
-	public DownloadTask(zprojectsupdater.ZProjectsUpdaterView gui, ArrayList<String> downloadURL, String saveDirectory) {
+	public DownloadTask(zprojectsupdater.ZProjectsUpdaterView gui, ArrayList<Archivo> archivos) {
 		this.gui = gui;
-		this.downloadURLs = downloadURL;
-		this.saveDirectory = saveDirectory;
+		this.downloadURLs = archivos;
 	}
 	
 	/**
@@ -35,45 +36,48 @@ public class DownloadTask extends SwingWorker<Void, Void> {
 	@Override
 	protected Void doInBackground() throws Exception {
             int i = 0;
-            for(String url : this.downloadURLs) {
+            for(Archivo archivo : this.downloadURLs) {
                 try {
-			HTTPDownloadUtil util = new HTTPDownloadUtil();
-			util.downloadFile(url);
-			
-			// set file information on the GUI
-			gui.setFileInfo(util.getFileName(), util.getContentLength());
-			
-			String saveFilePath = saveDirectory + File.separator + util.getFileName();
+                    HTTPDownloadUtil util = new HTTPDownloadUtil();
+                    util.downloadFile(ZProjectsUpdaterView.urlBase + archivo.getUrl());
 
-			InputStream inputStream = util.getInputStream();
-			// opens an output stream to save into file
-			FileOutputStream outputStream = new FileOutputStream(saveFilePath);
+                    // set file information on the GUI
+                    gui.setFileInfo(util.getFileName(), util.getContentLength());
+                    String path= ZProjectsUpdaterApp.currentPath;
+                    if (!archivo.getRuta().equals(".")) {
+                        path += File.separator + archivo.getRuta();
+                    }
+                    String saveFilePath = path + File.separator + util.getFileName();
 
-			byte[] buffer = new byte[BUFFER_SIZE];
-			int bytesRead = -1;
-			long totalBytesRead = 0;
-			int percentCompleted = 0;
-			long fileSize = util.getContentLength();
-                        if (fileSize>0){
-                            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                                    outputStream.write(buffer, 0, bytesRead);
-                                    totalBytesRead += bytesRead;
-                                    percentCompleted = (int) (totalBytesRead * 100 / fileSize);
+                    InputStream inputStream = util.getInputStream();
+                    // opens an output stream to save into file
+                    FileOutputStream outputStream = new FileOutputStream(saveFilePath);
 
-                                    setProgress(percentCompleted);			
-                            }
+                    byte[] buffer = new byte[BUFFER_SIZE];
+                    int bytesRead = -1;
+                    long totalBytesRead = 0;
+                    int percentCompleted = 0;
+                    long fileSize = util.getContentLength();
+                    if (fileSize>0){
+                        while ((bytesRead = inputStream.read(buffer)) != -1) {
+                                outputStream.write(buffer, 0, bytesRead);
+                                totalBytesRead += bytesRead;
+                                percentCompleted = (int) (totalBytesRead * 100 / fileSize);
+
+                                setProgress(percentCompleted);			
                         }
-			outputStream.close();
+                    }
+                    outputStream.close();
 
-			util.disconnect();
-                        gui.setStatus(util.getFileName() + " descargado correctamente.");
-                        i++;
+                    util.disconnect();
+                    gui.setStatus(util.getFileName() + " descargado correctamente.");
+                    i++;
 		} catch (IOException ex) {
-			JOptionPane.showMessageDialog(gui.getFrame(), "Error downloading file: " + ex.getMessage(),
-					"Error", JOptionPane.ERROR_MESSAGE);			
-			ex.printStackTrace();
-			setProgress(0);
-			cancel(true);			
+                    JOptionPane.showMessageDialog(gui.getFrame(), "Error downloading file: " + ex.getMessage(),
+                                    "Error", JOptionPane.ERROR_MESSAGE);			
+                    ex.printStackTrace();
+                    setProgress(0);
+                    cancel(true);			
 		}
             }
             if (i == this.downloadURLs.size()) {

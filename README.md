@@ -1,21 +1,21 @@
 zprojectsUpdater
 ================
-*Versión incompleta*
 
-Utilidad para realizar actualización de archivos y versiones de sotfware para el sistema [url=https://github.com/infoINGenieria/zprojects](zProject).
+Utilidad para realizar las descargas de archivos actualizados mediante una api que indica la ultima versión junto a la lista de archivos a descargar. Esta herramienta funciona dentro de [url=https://github.com/infoINGenieria/zprojects](zProject).
 
 Modo de uso
 -----------
 
 Para ejecutar la utilizada, compilar y ejecutar:
 
-    java -jar ZProjectsUpdater.jar version url [url2...]
+    java -jar ZProjectsUpdater.jar relativePath
 
-donde version es el número de versión del sistema a actualizar, y url es el archivo a descargar. Las url pueden ser varias, y descargará cada una en orden.
+donde relativePath se utilizará como ruta relativa para escribir los archivos descargados. 
 
 
 TODO
 ----
 
-- Descargar lista de archivos a descargar y la ubicación relativa de cada uno (en formato JSON).
-- Hacer contraparte web para suministrar la lista de archivos a actualizar, y poder cargar las versiones y los archivos.
+- [HECHO] Descargar lista de archivos a descargar y la ubicación relativa de cada uno (en formato JSON).
+- [HECHO]Hacer contraparte web para suministrar la lista de archivos a actualizar, y poder cargar las versiones y los archivos.
+- Publicar la contraparte web en github.
